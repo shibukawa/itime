@@ -1,5 +1,7 @@
 # itime: mockable time package
 
+[![GoDoc](https://godoc.org/github.com/shibukawa/itime?status.svg)](https://godoc.org/github.com/shibukawa/itime)
+
 This package provides go's time package compatible interface and its mock.
 
 It provides ``Time`` interface that has almost same functions of ``time`` package.
