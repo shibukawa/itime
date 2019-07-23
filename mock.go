@@ -14,41 +14,50 @@ func (m MockTime) Now() time.Time {
 	return m.current
 }
 
-func isClosed(ch chan time.Time) bool {
-	select {
-	case <-ch:
-		return true
-	default:
+func (m *MockTime) Close() {
+	for _, timer := range m.timers {
+		timer.internalStop()
 	}
-	return false
-}
-
-func (m *MockTime) Close() error {
-	return nil
+	m.timers = nil
 }
 
 func (m *MockTime) NewTimer(d time.Duration) Timer {
 	r := &MockTimer{
-		p: m,
+		p:       m,
+		c:       make(chan time.Time),
+		d:       d,
+		next:    m.current.Add(d),
+		oneshot: true,
 	}
+	m.timers = append(m.timers, r)
+	return r
+}
+
+func (m *MockTime) NewTicker(d time.Duration) Ticker {
+	r := &MockTimer{
+		p:       m,
+		c:       make(chan time.Time),
+		d:       d,
+		next:    m.current.Add(d),
+		oneshot: false,
+	}
+	m.timers = append(m.timers, r)
 	return r
 }
 
 func (m *MockTime) AfterFunc(d time.Duration, f func()) Timer {
 	t := m.NewTimer(d).(*MockTimer)
-	t.oneshot = true
 	t.cb = f
 	return t
 }
 
 func (m *MockTime) After(d time.Duration) <-chan time.Time {
 	t := m.NewTimer(d).(*MockTimer)
-	t.oneshot = true
 	return t.Chan()
 }
 
 func (m *MockTime) Tick(d time.Duration) <-chan time.Time {
-	t := m.NewTimer(d)
+	t := m.NewTicker(d)
 	return t.Chan()
 }
 
@@ -62,32 +71,50 @@ func (m *MockTime) Advance(d time.Duration, processTimer bool) {
 }
 
 func (m *MockTime) Set(t time.Time, processTimer bool) {
-	if t.Before(m.current) {
+	if t.Before(m.current) || len(m.timers) == 0 {
 		m.current = t
 		return
 	}
 	for {
 		timers := make([]*MockTimer, 0, len(m.timers))
 		for _, timer := range m.timers {
-			if timer.next.Before(t) {
+			if timer.next.Before(t) || timer.next.Equal(t) {
 				timers = append(timers, timer)
 			}
-			if len(timers) == 0 {
-				break
+		}
+		if len(timers) == 0 {
+			break
+		}
+		sort.Slice(timers, func(i, j int) bool {
+			return timers[i].next.Before(timers[j].next)
+		})
+		timer := timers[0]
+		m.current = timer.next
+		if processTimer {
+			success := false
+			for i := 0; i < 10; i++ {
+				select {
+				case timer.c <- timer.next:
+					success = true
+				default:
+				}
+				time.Sleep(time.Millisecond)
+				if success {
+					break
+				}
 			}
-			sort.Slice(timers, func(i, j int) bool {
-				return timers[i].next.Before(timers[j].next)
-			})
-			m.current = 
-			timers[0]
-			timers = timers[:0]
+			if timer.cb != nil {
+				timer.cb()
+			}
+		}
+		if timer.oneshot {
+			timer.Stop()
+		} else {
+			timer.next = timer.next.Add(timer.d)
 		}
 	}
 
-
 	m.current = t
-
-	panic("implement me")
 }
 
 var _ Time = &MockTime{}
@@ -105,16 +132,17 @@ func NewMockWith(t time.Time) *MockTime {
 }
 
 type MockTimer struct {
-	p *MockTime
+	p       *MockTime
 	c       chan time.Time
 	d       time.Duration
 	next    time.Time
 	cb      func()
 	oneshot bool
+	closed  bool
 }
 
 func (m *MockTimer) Reset(d time.Duration) bool {
-	if isClosed(m.c) {
+	if m.closed {
 		return false
 	}
 	m.d = d
@@ -122,20 +150,31 @@ func (m *MockTimer) Reset(d time.Duration) bool {
 	return true
 }
 
-func (m *MockTimer) Stop() bool {
-	if isClosed(m.c) {
+func (m *MockTimer) internalStop() bool {
+	if m.closed {
 		return false
 	}
-	close(m.c)
+	m.closed = true
+	return true
+}
+
+func (m *MockTimer) Stop() bool {
+	ok := m.internalStop()
+	if !ok {
+		return false
+	}
+	timers := make([]*MockTimer, 0, len(m.p.timers)-1)
+	for _, timer := range m.p.timers {
+		if timer != m {
+			timers = append(timers, timer)
+		}
+	}
+	m.p.timers = timers
 	return true
 }
 
 func (m *MockTimer) Chan() <-chan time.Time {
 	return m.c
-}
-
-func (m *MockTimer) AdvanceToNext() {
-	m.p.Set(m.next, true)
 }
 
 var _ Timer = &MockTimer{}

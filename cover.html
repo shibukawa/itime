@@ -1,0 +1,484 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/shibukawa/itime/genuine.go (83.9%)</option>
+				
+				<option value="file1">github.com/shibukawa/itime/mock.go (100.0%)</option>
+				
+				<option value="file2">github.com/shibukawa/itime/time.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package itime
+
+import "time"
+
+type GenuineTime struct {
+        timers  []*GenuineTimer
+        tickers []*GenuineTicker
+}
+
+func (t *GenuineTime) Close() <span class="cov8" title="1">{
+        for _, timer := range t.timers </span><span class="cov0" title="0">{
+                timer.internalStop()
+        }</span>
+        <span class="cov8" title="1">for _, ticker := range t.tickers </span><span class="cov0" title="0">{
+                ticker.internalStop()
+        }</span>
+        <span class="cov8" title="1">t.timers = nil
+        t.tickers = nil</span>
+}
+
+func (GenuineTime) Now() time.Time <span class="cov8" title="1">{
+        return time.Now()
+}</span>
+
+func (t *GenuineTime) NewTimer(d time.Duration) Timer <span class="cov8" title="1">{
+        r := &amp;GenuineTimer{
+                p: t,
+                t: time.NewTimer(d),
+                w: make(chan struct{}),
+                c: make(chan time.Time),
+        }
+        t.timers = append(t.timers, r)
+        go func() </span><span class="cov8" title="1">{
+                select </span>{
+                case now := &lt;-r.t.C:<span class="cov8" title="1">
+                        r.Stop()
+                        r.c &lt;- now</span>
+                case &lt;-r.w:<span class="cov0" title="0"></span>
+                }
+        }()
+        <span class="cov8" title="1">return r</span>
+}
+
+func (t *GenuineTime) NewTicker(d time.Duration) Ticker <span class="cov8" title="1">{
+        r := &amp;GenuineTicker{
+                p: t,
+                t: time.NewTicker(d),
+        }
+        t.tickers = append(t.tickers, r)
+        return r
+}</span>
+
+func (t *GenuineTime) AfterFunc(d time.Duration, f func()) Timer <span class="cov8" title="1">{
+        r := &amp;GenuineTimer{
+                p: t,
+                t: time.NewTimer(d),
+                w: make(chan struct{}),
+                c: make(chan time.Time),
+        }
+        t.timers = append(t.timers, r)
+        go func() </span><span class="cov8" title="1">{
+                select </span>{
+                case now := &lt;-r.t.C:<span class="cov8" title="1">
+                        r.Stop()
+                        f()
+                        r.c &lt;- now</span>
+                case &lt;-r.w:<span class="cov0" title="0"></span>
+                }
+        }()
+        <span class="cov8" title="1">return r</span>
+}
+
+func (t *GenuineTime) After(d time.Duration) &lt;-chan time.Time <span class="cov0" title="0">{
+        r := t.NewTimer(d)
+        return r.Chan()
+}</span>
+
+func (t *GenuineTime) Tick(d time.Duration) &lt;-chan time.Time <span class="cov0" title="0">{
+        r := t.NewTicker(d)
+        return r.Chan()
+}</span>
+
+func (GenuineTime) Sleep(d time.Duration) <span class="cov8" title="1">{
+        time.Sleep(d)
+}</span>
+
+var _ Time = &amp;GenuineTime{}
+
+func New() Time <span class="cov8" title="1">{
+        return &amp;GenuineTime{}
+}</span>
+
+type GenuineTimer struct {
+        p *GenuineTime
+        t *time.Timer
+        w chan struct{}
+        c chan time.Time
+}
+
+func (t *GenuineTimer) Reset(d time.Duration) bool <span class="cov0" title="0">{
+        return t.t.Reset(d)
+}</span>
+
+func (t *GenuineTimer) internalStop() bool <span class="cov8" title="1">{
+        r := t.t.Stop()
+        w := t.w
+        t.w = nil
+        if w != nil </span><span class="cov8" title="1">{
+                close(w)
+        }</span>
+        <span class="cov8" title="1">return r</span>
+}
+
+func (t *GenuineTimer) Stop() bool <span class="cov8" title="1">{
+        ok := t.internalStop()
+        if ok == true </span><span class="cov8" title="1">{
+                timers := make([]*GenuineTimer, 0, len(t.p.timers)-1)
+                for _, timer := range t.p.timers </span><span class="cov8" title="1">{
+                        if timer != t </span><span class="cov0" title="0">{
+                                timers = append(timers, timer)
+                        }</span>
+                }
+                <span class="cov8" title="1">t.p.timers = timers</span>
+        }
+        <span class="cov8" title="1">return ok</span>
+}
+
+func (t GenuineTimer) Chan() &lt;-chan time.Time <span class="cov8" title="1">{
+        return t.c
+}</span>
+
+var _ Timer = &amp;GenuineTimer{}
+
+type GenuineTicker struct {
+        p *GenuineTime
+        t *time.Ticker
+}
+
+func (t *GenuineTicker) internalStop() <span class="cov8" title="1">{
+        t.t.Stop()
+}</span>
+
+func (t *GenuineTicker) Stop() bool <span class="cov8" title="1">{
+        t.internalStop()
+        tickers := make([]*GenuineTicker, 0, len(t.p.tickers)-1)
+        for _, ticker := range t.p.tickers </span><span class="cov8" title="1">{
+                if ticker != t </span><span class="cov0" title="0">{
+                        tickers = append(tickers, ticker)
+                }</span>
+        }
+        <span class="cov8" title="1">t.p.tickers = tickers
+        return true</span>
+}
+
+func (t GenuineTicker) Chan() &lt;-chan time.Time <span class="cov8" title="1">{
+        return t.t.C
+}</span>
+
+var _ Ticker = &amp;GenuineTicker{}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package itime
+
+import (
+        "sort"
+        "time"
+)
+
+type MockTime struct {
+        timers  []*MockTimer
+        current time.Time
+}
+
+func (m MockTime) Now() time.Time <span class="cov8" title="1">{
+        return m.current
+}</span>
+
+func (m *MockTime) Close() <span class="cov8" title="1">{
+        for _, timer := range m.timers </span><span class="cov8" title="1">{
+                timer.internalStop()
+        }</span>
+        <span class="cov8" title="1">m.timers = nil</span>
+}
+
+func (m *MockTime) NewTimer(d time.Duration) Timer <span class="cov8" title="1">{
+        r := &amp;MockTimer{
+                p:       m,
+                c:       make(chan time.Time),
+                d:       d,
+                next:    m.current.Add(d),
+                oneshot: true,
+        }
+        m.timers = append(m.timers, r)
+        return r
+}</span>
+
+func (m *MockTime) NewTicker(d time.Duration) Ticker <span class="cov8" title="1">{
+        r := &amp;MockTimer{
+                p:       m,
+                c:       make(chan time.Time),
+                d:       d,
+                next:    m.current.Add(d),
+                oneshot: false,
+        }
+        m.timers = append(m.timers, r)
+        return r
+}</span>
+
+func (m *MockTime) AfterFunc(d time.Duration, f func()) Timer <span class="cov8" title="1">{
+        t := m.NewTimer(d).(*MockTimer)
+        t.cb = f
+        return t
+}</span>
+
+func (m *MockTime) After(d time.Duration) &lt;-chan time.Time <span class="cov8" title="1">{
+        t := m.NewTimer(d).(*MockTimer)
+        return t.Chan()
+}</span>
+
+func (m *MockTime) Tick(d time.Duration) &lt;-chan time.Time <span class="cov8" title="1">{
+        t := m.NewTicker(d)
+        return t.Chan()
+}</span>
+
+func (m *MockTime) Sleep(d time.Duration) <span class="cov8" title="1">{
+        m.Advance(d, true)
+}</span>
+
+func (m *MockTime) Advance(d time.Duration, processTimer bool) <span class="cov8" title="1">{
+        newCurrent := m.current.Add(d)
+        m.Set(newCurrent, processTimer)
+}</span>
+
+func (m *MockTime) Set(t time.Time, processTimer bool) <span class="cov8" title="1">{
+        if t.Before(m.current) || len(m.timers) == 0 </span><span class="cov8" title="1">{
+                m.current = t
+                return
+        }</span>
+        <span class="cov8" title="1">for </span><span class="cov8" title="1">{
+                timers := make([]*MockTimer, 0, len(m.timers))
+                for _, timer := range m.timers </span><span class="cov8" title="1">{
+                        if timer.next.Before(t) || timer.next.Equal(t) </span><span class="cov8" title="1">{
+                                timers = append(timers, timer)
+                        }</span>
+                }
+                <span class="cov8" title="1">if len(timers) == 0 </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">sort.Slice(timers, func(i, j int) bool </span><span class="cov8" title="1">{
+                        return timers[i].next.Before(timers[j].next)
+                }</span>)
+                <span class="cov8" title="1">timer := timers[0]
+                m.current = timer.next
+                if processTimer </span><span class="cov8" title="1">{
+                        waitTimer := time.NewTicker(time.Millisecond)
+                        defer waitTimer.Stop()
+                        success := false
+                        for i := 0; i &lt; 10; i++ </span><span class="cov8" title="1">{
+                                select </span>{
+                                case timer.c &lt;- timer.next:<span class="cov8" title="1">
+                                        success = true</span>
+                                default:<span class="cov8" title="1"></span>
+                                }
+                                <span class="cov8" title="1">&lt;-waitTimer.C
+                                if success </span><span class="cov8" title="1">{
+                                        break</span>
+                                }
+                        }
+                        <span class="cov8" title="1">if timer.cb != nil </span><span class="cov8" title="1">{
+                                timer.cb()
+                        }</span>
+                }
+                <span class="cov8" title="1">if timer.oneshot </span><span class="cov8" title="1">{
+                        timer.Stop()
+                }</span> else<span class="cov8" title="1"> {
+                        timer.next = timer.next.Add(timer.d)
+                }</span>
+        }
+
+        <span class="cov8" title="1">m.current = t</span>
+}
+
+var _ Time = &amp;MockTime{}
+
+func NewMock() *MockTime <span class="cov8" title="1">{
+        return &amp;MockTime{
+                current: time.Now(),
+        }
+}</span>
+
+func NewMockWith(t time.Time) *MockTime <span class="cov8" title="1">{
+        return &amp;MockTime{
+                current: t,
+        }
+}</span>
+
+type MockTimer struct {
+        p       *MockTime
+        c       chan time.Time
+        d       time.Duration
+        next    time.Time
+        cb      func()
+        oneshot bool
+}
+
+func (m *MockTimer) Reset(d time.Duration) bool <span class="cov8" title="1">{
+        if isClosed(m.c) </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">m.d = d
+        m.next = m.p.Now().Add(d)
+        return true</span>
+}
+
+func (m *MockTimer) internalStop() bool <span class="cov8" title="1">{
+        if isClosed(m.c) </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">close(m.c)
+        return true</span>
+}
+
+func (m *MockTimer) Stop() bool <span class="cov8" title="1">{
+        ok := m.internalStop()
+        if !ok </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">timers := make([]*MockTimer, 0, len(m.p.timers)-1)
+        for _, timer := range m.p.timers </span><span class="cov8" title="1">{
+                if timer != m </span><span class="cov8" title="1">{
+                        timers = append(timers, timer)
+                }</span>
+        }
+        <span class="cov8" title="1">m.p.timers = timers
+        return true</span>
+}
+
+func (m *MockTimer) Chan() &lt;-chan time.Time <span class="cov8" title="1">{
+        return m.c
+}</span>
+
+var _ Timer = &amp;MockTimer{}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package itime
+
+import "time"
+
+type Timer interface {
+        Reset(d time.Duration) bool
+        Stop() bool
+        Chan() &lt;-chan time.Time
+}
+
+type Ticker interface {
+        Stop() bool
+        Chan() &lt;-chan time.Time
+}
+
+type Time interface {
+        Now() time.Time
+        NewTimer(d time.Duration) Timer
+        NewTicker(d time.Duration) Ticker
+        AfterFunc(d time.Duration, f func()) Timer
+        After(d time.Duration) &lt;-chan time.Time
+        Tick(d time.Duration) &lt;-chan time.Time
+        Sleep(d time.Duration)
+        Close()
+}
+
+func isClosed(ch chan time.Time) bool <span class="cov8" title="1">{
+        select </span>{
+        case &lt;-ch:<span class="cov8" title="1">
+                return true</span>
+        default:<span class="cov8" title="1"></span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

@@ -1,0 +1,4 @@
+github.com/Songmu/gocredits v0.0.6 h1:rotNkgRpanECqi0Tsm96qsZv20MfZ4OzIw1JWvQH0XI=
+github.com/Songmu/gocredits v0.0.6/go.mod h1:C6MFZy971ndyVRlszeuLwI/AKmC0DRBNQ5EjiCN3Rcg=
+golang.org/x/xerrors v0.0.0-20190410155217-1f06c39b4373 h1:PPwnA7z1Pjf7XYaBP9GL1VAMZmcIWyFz7QCMSIIa3Bg=
+golang.org/x/xerrors v0.0.0-20190410155217-1f06c39b4373/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
