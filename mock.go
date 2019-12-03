@@ -1,7 +1,10 @@
 package itime
 
 import (
+	"context"
+	"runtime"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -62,12 +65,17 @@ func (m *MockTime) Tick(d time.Duration) <-chan time.Time {
 }
 
 func (m *MockTime) Sleep(d time.Duration) {
-	m.Advance(d, true)
+	t := m.NewTimer(d)
+	defer t.Stop()
+	<-t.Chan()
 }
 
 func (m *MockTime) Advance(d time.Duration, processTimer bool) {
 	newCurrent := m.current.Add(d)
 	m.Set(newCurrent, processTimer)
+	for i := 0; i < len(m.timers)*2; i++ {
+		runtime.Gosched()
+	}
 }
 
 func (m *MockTime) Set(t time.Time, processTimer bool) {
@@ -98,7 +106,7 @@ func (m *MockTime) Set(t time.Time, processTimer bool) {
 					success = true
 				default:
 				}
-				time.Sleep(time.Millisecond)
+				runtime.Gosched()
 				if success {
 					break
 				}
@@ -115,6 +123,24 @@ func (m *MockTime) Set(t time.Time, processTimer bool) {
 	}
 
 	m.current = t
+}
+
+func (m *MockTime) WithDeadline(ctx context.Context, d time.Time) (context.Context, context.CancelFunc) {
+	return newMockContext(m, ctx, d)
+}
+
+func (m *MockTime) WithTimeout(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+	return newMockContext(m, ctx, m.Now().Add(d))
+}
+
+func (m *MockTime) removeTimer(t *MockTimer) {
+	timers := make([]*MockTimer, 0, len(m.timers)-1)
+	for _, timer := range m.timers {
+		if timer != t {
+			timers = append(timers, timer)
+		}
+	}
+	m.timers = timers
 }
 
 var _ Time = &MockTime{}
@@ -139,9 +165,12 @@ type MockTimer struct {
 	cb      func()
 	oneshot bool
 	closed  bool
+	lock    sync.Mutex
 }
 
 func (m *MockTimer) Reset(d time.Duration) bool {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	if m.closed {
 		return false
 	}
@@ -151,6 +180,8 @@ func (m *MockTimer) Reset(d time.Duration) bool {
 }
 
 func (m *MockTimer) internalStop() bool {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	if m.closed {
 		return false
 	}
@@ -163,13 +194,7 @@ func (m *MockTimer) Stop() bool {
 	if !ok {
 		return false
 	}
-	timers := make([]*MockTimer, 0, len(m.p.timers)-1)
-	for _, timer := range m.p.timers {
-		if timer != m {
-			timers = append(timers, timer)
-		}
-	}
-	m.p.timers = timers
+	m.p.removeTimer(m)
 	return true
 }
 

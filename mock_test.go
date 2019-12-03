@@ -141,7 +141,7 @@ func TestMockTime_MultipleTimer(t *testing.T) {
 		}
 	}()
 
-	mock.Sleep(10 * time.Second)
+	mock.Advance(10*time.Second, true)
 
 	assert.Equal(t, "timer2(tick)", <-events)
 	assert.Equal(t, "timer2(tick)", <-events)
@@ -149,6 +149,9 @@ func TestMockTime_MultipleTimer(t *testing.T) {
 	assert.Equal(t, "timer2(tick)", <-events)
 
 	mock.Close()
+}
+
+func TestMockTime_WithDeadline(t *testing.T) {
 
 }
 
@@ -165,7 +168,7 @@ func TestMockTimer_Reset(t *testing.T) {
 		<-timer.Chan()
 		wait <- "ring"
 	}()
-	mock.Sleep(2 * time.Minute)
+	mock.Advance(2*time.Minute, true)
 
 	message, ok := <-wait
 	assert.Equal(t, "ring", message)

@@ -1,6 +1,11 @@
 package itime
 
-import "time"
+import (
+	"context"
+	"runtime"
+	"sync"
+	"time"
+)
 
 // GenuineTime is an implementation of real time for Time interface
 type GenuineTime struct {
@@ -93,6 +98,15 @@ func (t *GenuineTime) Tick(d time.Duration) <-chan time.Time {
 // Sleep waits for the duration to elapse
 func (GenuineTime) Sleep(d time.Duration) {
 	time.Sleep(d)
+	runtime.Gosched()
+}
+
+func (t *GenuineTime) WithDeadline(ctx context.Context, d time.Time) (context.Context, context.CancelFunc) {
+	return context.WithDeadline(ctx, d)
+}
+
+func (t *GenuineTime) WithTimeout(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, d)
 }
 
 var _ Time = &GenuineTime{}
@@ -108,6 +122,7 @@ type GenuineTimer struct {
 	t *time.Timer
 	w chan struct{}
 	c chan time.Time
+	lock sync.Mutex
 }
 
 // Reset changes timer duration
@@ -116,6 +131,9 @@ func (t *GenuineTimer) Reset(d time.Duration) bool {
 }
 
 func (t *GenuineTimer) internalStop() bool {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
 	r := t.t.Stop()
 	w := t.w
 	t.w = nil
@@ -142,6 +160,8 @@ func (t *GenuineTimer) Stop() bool {
 
 // Chan returns channel that sends current time
 func (t GenuineTimer) Chan() <-chan time.Time {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	return t.c
 }
 

@@ -1,6 +1,9 @@
 package itime
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // Ticker is an interface of oneshot timer.
 type Timer interface {
@@ -27,4 +30,6 @@ type Time interface {
 	Tick(d time.Duration) <-chan time.Time
 	Sleep(d time.Duration)
 	Close()
+	WithDeadline(context.Context, time.Time) (context.Context, context.CancelFunc)
+	WithTimeout(context.Context, time.Duration) (context.Context, context.CancelFunc)
 }
